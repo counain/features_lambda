@@ -12,7 +12,7 @@ jobs:
         function:
           - lambda_1
           - lambda_2
-            # Add more function names as needed 
+          # Add more function names as needed 
 
     runs-on: ubuntu-latest
 
@@ -25,12 +25,12 @@ jobs:
         run: |
           CHANGED_FUNCTIONS=$(git log --format=%B -n 1 ${{ github.sha }} | grep -o '\[.*\]' | sed 's/[][]//g')
 
-          # Convert the list to a JSON array
-          MATRIX="["
+          # Convert the list to a comma-separated string
+          MATRIX=""
           for FUNCTION in $CHANGED_FUNCTIONS; do
-            MATRIX+="\"$FUNCTION\","
+            MATRIX+="$FUNCTION,"
           done
-          MATRIX="${MATRIX%,}]"
+          MATRIX="${MATRIX%,}"
 
           echo "::set-output name=matrix::$MATRIX"
 
