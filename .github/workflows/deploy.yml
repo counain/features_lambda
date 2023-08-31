@@ -23,14 +23,11 @@ jobs:
       - name: Determine Lambda Functions to Deploy
         id: determine-functions
         run: |
-          CHANGED_FUNCTIONS=$(git log --format=%B -n 1 ${{ github.sha }} | grep -o '\[.*\]' | sed 's/[][]//g')
+          # Extract the function label from the commit message
+          FUNCTION_LABEL=$(git log --format=%B -n 1 ${{ github.sha }} | grep -o '\[.*\]' | sed 's/[][]//g')
 
-          # Convert the list to a comma-separated string
-          MATRIX=""
-          for FUNCTION in $CHANGED_FUNCTIONS; do
-            MATRIX+="$FUNCTION,"
-          done
-          MATRIX="${MATRIX%,}"
+          # Use the label to set the matrix for the specific function
+          MATRIX="$FUNCTION_LABEL"
 
           echo "::set-output name=matrix::$MATRIX"
 
@@ -53,4 +50,3 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ap-south-1
-
