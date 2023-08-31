@@ -1,0 +1,56 @@
+name: Deploy Lambda Functions
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    strategy:
+      matrix:
+        function:
+          - lambda_1
+          - lambda_2
+            # Add more function names as needed 
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Determine Lambda Functions to Deploy
+        id: determine-functions
+        run: |
+          CHANGED_FUNCTIONS=$(git log --format=%B -n 1 ${{ github.sha }} | grep -o '\[.*\]' | sed 's/[][]//g')
+
+          # Convert the list to a JSON array
+          MATRIX="["
+          for FUNCTION in $CHANGED_FUNCTIONS; do
+            MATRIX+="\"$FUNCTION\","
+          done
+          MATRIX="${MATRIX%,}]"
+
+          echo "::set-output name=matrix::$MATRIX"
+
+      - name: Deploy Lambda Functions
+        run: |
+          # Authenticate AWS CLI using your access keys or other methods
+          # aws configure set aws_access_key_id <your-access-key>
+          # aws configure set aws_secret_access_key <your-secret-key>
+          # aws configure set region <your-region>
+
+          # Deploy the Lambda functions
+          for FUNCTION in ${{ steps.determine-functions.outputs.matrix }}; do
+            cd $FUNCTION
+            zip -r function.zip .
+            aws lambda update-function-code --function-name $FUNCTION --zip-file fileb://function.zip
+            cd ..
+          done
+
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-south-1
+
