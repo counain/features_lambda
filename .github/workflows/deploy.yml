@@ -23,11 +23,17 @@ jobs:
       - name: Determine Lambda Functions to Deploy
         id: determine-functions
         run: |
-          # Extract the function label from the commit message
-          FUNCTION_LABEL=$(git log --format=%B -n 1 ${{ github.sha }} | grep -o '\[.*\]' | sed 's/[][]//g')
+          # Check if the commit message contains "lambda_1 updated"
+          COMMIT_MESSAGE=$(git log --format=%B -n 1 ${{ github.sha }})
+          echo "Commit Message: $COMMIT_MESSAGE"
+          
+          if [[ $COMMIT_MESSAGE == *"lambda_1 updated"* ]]; then
+            MATRIX="lambda_1"
+          else
+            MATRIX=""
+          fi
 
-          # Use the label to set the matrix for the specific function
-          MATRIX="$FUNCTION_LABEL"
+          echo "Selected Matrix: $MATRIX"
 
           echo "::set-output name=matrix::$MATRIX"
 
@@ -40,6 +46,7 @@ jobs:
 
           # Deploy the Lambda functions
           for FUNCTION in ${{ steps.determine-functions.outputs.matrix }}; do
+            echo "Deploying Lambda: $FUNCTION"
             cd $FUNCTION
             zip -r function.zip .
             aws lambda update-function-code --function-name $FUNCTION --zip-file fileb://function.zip
@@ -50,3 +57,4 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ap-south-1
+
