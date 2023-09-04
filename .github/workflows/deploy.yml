@@ -1,52 +1,56 @@
-name: Deploy Lambda Functions
-
+name: map-update-to-the-appropriate-lambda_function
+# on:
+#   push:
+#     paths:
+#       - '**/lambda_function_1/**'
 on:
-  push:
-    branches:
-      - master
+  push
+env:
+  AWS_REGION: ap-south-1
 
+permissions:
+      id-token: write   # This is required for requesting the JWT
+      contents: read    # This is required for actions/checkout
 jobs:
-  deploy:
+  map-commit-to-lambda:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Determine Lambda to Deploy
-        id: determine-lambda
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::039519066345:role/admin_for_gitRole
+          role-session-name: temporarylambdasession
+          aws-region: ap-south-1
+      - name: test echo command
         run: |
-          COMMIT_MESSAGE=$(git log --format=%B -n 1 ${{ github.sha }})
-          LAMBDA_NAME=""
+          echo "very soon an aws command will run \
+          in place of this echo command.."
+      - name: checking around and within the working directory
+        run: |
+          pwd
+          ls $(pwd)
+      
+      - name: show branch
+        run: git branch --show
 
-          # Loop through the folder names and check if any of them are mentioned in the commit message
-          # Add more folder names as needed
-          for FUNCTION in lambda_1 lambda_2 lambda_3 ... lambda_50; do
-            if [[ $COMMIT_MESSAGE == *"$FUNCTION"* ]]; then
-              LAMBDA_NAME="$FUNCTION"
-              break
+      - name: putting last modified file paths in a variable
+        id: modded_paths
+        # run: echo "modded_paths=$(git diff --name-only -r ${{ github.event.after }} ${{ github.event.before }})" >> $GITHUB_OUTPUT
+        run: echo "modded_paths=$(git diff --name-only -r ${{ github.event.after }} ${{ github.event.before }} | xargs )" >> $GITHUB_OUTPUT
+      
+      - name: echoing variable storing last modified file paths
+        env:
+          modded_paths: ${{ steps.modded_paths.outputs.modded_paths }}
+        run: |
+          for path in $modded_paths; do
+            echo $path
+            if [[ $path =~ lambda_function\.py$ ]]; then
+                function_name=$(echo $name | rev | cut -d "/" -f 2 | rev)
+                zip -j function.zip $path
+                aws lambda update-function-code --function-name "$function_name" --zip-file fileb://function.zip
             fi
           done
-
-          if [[ -z "$LAMBDA_NAME" ]]; then
-            echo "No specific Lambda to deploy."
-            exit 0
-          fi
-
-          echo "::set-output name=lambda::$LAMBDA_NAME"
-
-      - name: Deploy Lambda
-        run: |
-          LAMBDA_NAME="${{ steps.determine-lambda.outputs.lambda }}"
-          if [[ -n "$LAMBDA_NAME" ]]; then
-            cd $LAMBDA_NAME
-            zip -r function.zip .
-            aws lambda update-function-code --function-name $LAMBDA_NAME --zip-file fileb://function.zip
-            cd ..
-          fi
-
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ap-south-1
-
