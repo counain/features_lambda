@@ -3,35 +3,28 @@ name: Deploy Lambda Function
 on:
   push:
     branches:
-      - master  # Adjust the branch name as needed
-
+      - master
 jobs:
-  deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out code
-        uses: actions/checkout@v2
+      - name: checkout
+        uses: actions/checkout@v3
 
-      - name: Determine most recently modified folder
-        id: find-modified-folder
-        run: |
-          latest_commit=$(git rev-parse HEAD)
-          modified_folders=$(git diff --name-only $latest_commit^1 $latest_commit | xargs -I {} dirname {})
-          unique_folders=$(echo "$modified_folders" | tr ' ' '\n' | sort -u | tr '\n' ' ')
-          echo "modified_folders=$unique_folders" >> $GITHUB_ENV
-
-      - name: Deploy Lambda Function
+      - name: putting last modified file paths in a variable
+        id: modded_paths
+        run: echo "modded_paths=$(git diff --name-only -r ${{ github.event.after }} ${{ github.event.before }} | xargs )" >> $GITHUB_OUTPUT
+      
+      - name: echoing variable storing last modified file paths
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          MODIFIED_FOLDERS: ${{ env.modified_folders }}
+          modded_paths: ${{ steps.modded_paths.outputs.modded_paths }}
         run: |
-          for folder in $MODIFIED_FOLDERS; do
-            if [[ -d "$folder" ]]; then
-              function_name=$(basename "$folder")
-              zip -j "$function_name.zip" "$folder"/*
-              aws lambda update-function-code --function-name "$function_name" --zip-file "fileb://$function_name.zip"
+          for path in $modded_paths; do
+            echo $path
+            if [[ $path =~ lambda_function\.js$ ]]; then
+                function_name=$(echo $path | rev | cut -d "/" -f 2 | rev)
+                zip -j function.zip $path
+                aws lambda update-function-code --function-name "$function_name" --zip-file fileb://function.zip
             fi
           done
-
