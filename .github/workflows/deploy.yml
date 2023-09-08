@@ -1,35 +1,28 @@
-name: Deploy Lambda Functions
+name: Lambda Deployment
 
 on:
   push:
-    branches:
-      - master # Adjust the branch name as needed
+    paths:
+      - 'features_lambda/**'  # Trigger the workflow when files under features_lambda/ are pushed.
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out code
-      uses: actions/checkout@v2
+      - name: Check out the code
+        uses: actions/checkout@v2
 
-    - name: Identify the modified folder
-      id: diff
-      run: echo "MODIFIED_FOLDER=$(git diff --dirstat=1 --name-only ${{ github.event.before }} ${{ github.event.after }} | head -n 1)" >> $GITHUB_ENV
-
-    - name: Deploy Lambda Function
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        MODIFIED_FOLDER: ${{ env.MODIFIED_FOLDER }}
-      run: |
-        if [ -n "$MODIFIED_FOLDER" ]; then
-          echo "Modified folder: $MODIFIED_FOLDER"
-          # Assuming your Lambda function is named after the folder
-          function_name=$(basename $MODIFIED_FOLDER)
-          zip -j function.zip "$MODIFIED_FOLDER/lambda_code.js"
-          aws lambda update-function-code --function-name "$function_name" --zip-file fileb://function.zip
-        else
-          echo "No Lambda function folder modified."
-        fi
+      - name: Deploy Lambda Functions
+        run: |
+          for folder in features_lambda/*; do
+            if [[ -d "$folder" ]]; then
+              function_name=$(basename "$folder")
+              zip -j "$function_name.zip" "$folder/lambda_code.js"
+              aws lambda update-function-code --function-name "$function_name" --zip-file "fileb://$function_name.zip"
+            fi
+          done
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
