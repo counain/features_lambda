@@ -1,31 +1,35 @@
-name: Deploy Lambda Function
+name: Deploy Lambda Functions
 
 on:
   push:
     branches:
-      - master
+      - main # Adjust the branch name as needed
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
 
-      - name: putting last modified file paths in a variable
-        id: modded_paths
-        run: echo "modded_paths=$(git diff --name-only -r ${{ github.event.after }} ${{ github.event.before }} | xargs )" >> $GITHUB_OUTPUT
-      
-      - name: echoing variable storing last modified file paths
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          modded_paths: ${{ steps.modded_paths.outputs.modded_paths }}
-        run: |
-          for path in $modded_paths; do
-            echo $path
-            if [[ $path =~ lambda_function\.js$ ]]; then
-                function_name=$(echo $path | rev | cut -d "/" -f 2 | rev)
-                zip -j function.zip $path
-                aws lambda update-function-code --function-name "$function_name" --zip-file fileb://function.zip
-            fi
-          done
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Identify the modified folder
+      id: diff
+      run: echo "MODIFIED_FOLDER=$(git diff --dirstat=1 --name-only ${{ github.event.before }} ${{ github.event.after }} | head -n 1)" >> $GITHUB_ENV
+
+    - name: Deploy Lambda Function
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        MODIFIED_FOLDER: ${{ env.MODIFIED_FOLDER }}
+      run: |
+        if [ -n "$MODIFIED_FOLDER" ]; then
+          echo "Modified folder: $MODIFIED_FOLDER"
+          # Assuming your Lambda function is named after the folder
+          function_name=$(basename $MODIFIED_FOLDER)
+          zip -j function.zip "$MODIFIED_FOLDER/lambda_code.js"
+          aws lambda update-function-code --function-name "$function_name" --zip-file fileb://function.zip
+        else
+          echo "No Lambda function folder modified."
+        fi
+
