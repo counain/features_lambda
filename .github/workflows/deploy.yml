@@ -3,7 +3,7 @@ name: Lambda Deployment
 on:
   push:
     paths:
-      - 'features_lambda/**'  # Trigger the workflow when files under features_lambda/ are pushed.
+      - 'master/**'  # Trigger the workflow when files under features_lambda/ are pushed.
 
 jobs:
   deploy:
