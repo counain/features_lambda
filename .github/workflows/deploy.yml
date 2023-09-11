@@ -1,28 +1,46 @@
-name: Lambda Deployment
-
-on:
+name: map-update-to-the-appropriate-lambda_function
+ on:
   push:
-    paths:
-      - 'master/**'  # Trigger the workflow when files under features_lambda/ are pushed.
+    branches:
+      - master
 
 jobs:
-  deploy:
+  map-commit-to-lambda:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out the code
-        uses: actions/checkout@v2
-
-      - name: Deploy Lambda Functions
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: test echo command
         run: |
-          for folder in features_lambda/*; do
-            if [[ -d "$folder" ]]; then
-              function_name=$(basename "$folder")
-              zip -j "$function_name.zip" "$folder/lambda_code.js"
-              aws lambda update-function-code --function-name "$function_name" --zip-file "fileb://$function_name.zip"
-            fi
-          done
+          echo "very soon an aws command will run \
+          in place of this echo command.."
+      - name: checking around and within the working directory
+        run: |
+          pwd
+          ls $(pwd)
+      
+      - name: show branch
+        run: git branch --show
+
+      - name: putting last modified file paths in a variable
+        id: modded_paths
+        run: echo "modded_paths=$(git diff --name-only -r ${{ github.event.after }} ${{ github.event.before }} | xargs )" >> $GITHUB_OUTPUT
+      
+      - name: echoing variable storing last modified file paths
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
+          aws-region: ap-south-1
+          modded_paths: ${{ steps.modded_paths.outputs.modded_paths }}
+        run: |
+          for path in $modded_paths; do
+            echo $path
+            if [[ $path =~ index\.js$ ]]; then
+                function_name=$(echo $path | rev | cut -d "/" -f 2 | rev)
+                zip -j function.zip $path
+                aws lambda update-function-code --function-name "$function_name" --zip-file fileb://function.zip
+            fi
+          done
+        
