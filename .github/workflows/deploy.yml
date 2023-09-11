@@ -1,46 +1,46 @@
-name: map-update-to-the-appropriate-lambda_function
+name: Update Lambda Functions
+
 on:
   push:
     branches:
       - master
 
 jobs:
-  map-commit-to-lambda:
+  update-lambda:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: test echo command
-        run: |
-          echo "very soon an aws command will run \
-          in place of this echo command.."
-      - name: checking around and within the working directory
-        run: |
-          pwd
-          ls $(pwd)
+      - name: Checkout
+        uses: actions/checkout@v2
       
-      - name: show branch
-        run: git branch --show
-
-      - name: putting last modified file paths in a variable
-        id: modded_paths
-        run: echo "modded_paths=$(git diff --name-only -r ${{ github.event.after }} ${{ github.event.before }} | xargs )" >> $GITHUB_OUTPUT
-      
-      - name: echoing variable storing last modified file paths
+      - name: List Modified Files
+        id: list-changes
+        run: |
+          echo "::set-output name=files::$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})"
+        
+      - name: Update Lambda Functions
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-1
-          modded_paths: ${{ steps.modded_paths.outputs.modded_paths }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
         run: |
-          for path in $modded_paths; do
-            echo $path
-            if [[ $path =~ index\.js$ ]]; then
-                function_name=$(echo $path | rev | cut -d "/" -f 2 | rev)
-                zip -j function.zip $path
-                aws lambda update-function-code --function-name "$function_name" --zip-file fileb://function.zip
+          # Loop through the modified files
+          for file in ${{ steps.list-changes.outputs.files }}; do
+            if [[ $file == "lambda_"*"/index.js" ]]; then
+              # Extract the function name from the path
+              function_name=$(echo $file | cut -d '/' -f 1)
+              echo "Updating Lambda function: $function_name"
+              
+              # Zip the updated Lambda function code
+              cd $function_name
+              zip -r function.zip .
+              
+              # Update the Lambda function code
+              aws lambda update-function-code --function-name $function_name --zip-file fileb://function.zip
+              
+              # Clean up the zip file
+              rm function.zip
+              
+              cd ..
             fi
           done
-        
+
