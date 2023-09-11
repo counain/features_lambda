@@ -1,5 +1,5 @@
 name: map-update-to-the-appropriate-lambda_function
- on:
+on:
   push:
     branches:
       - master
