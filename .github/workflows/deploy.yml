@@ -27,7 +27,7 @@ jobs:
           # Loop through the modified files
           for file in ${{ steps.list-changes.outputs.files }}; do 
             echo $file
-            if [[ $file == "index\.js$" ]]; then
+            if [[ $file =~ "index\.js$" ]]; then
               # Extract the function name from the path
               function_name=$(echo $file | cut -d '/' -f 1)
               echo "Updating Lambda function: $function_name"
