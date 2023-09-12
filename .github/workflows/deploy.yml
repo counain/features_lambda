@@ -31,7 +31,7 @@ jobs:
               # Extract the function name from the path
               function_name=$(echo $file | cut -d '/' -f 1)
               echo "Updating Lambda function: $function_name"
-              
+              echo $function_name
               # Zip the updated Lambda function code
               cd $function_name
               zip -r function.zip .
