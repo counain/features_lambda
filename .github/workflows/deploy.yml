@@ -15,7 +15,7 @@ jobs:
       - name: List Modified Files
         id: list-changes
         run: |
-          echo "::set-output name=files::$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})"
+          echo "::set-output name=files::$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }})"
         
       - name: Update Lambda Functions
         env:
